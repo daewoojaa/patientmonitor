@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+  body { margin:0; background:#0a0a0a; }
+  a { color:#4ade80; } a:hover { color:#86efac; }
+</style>
+</helmet>
+
+<div onClick="{{ onTap }}" style="font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;background:#000;color:#e6e6e6;width:100%;max-width:1200px;margin:0 auto;display:flex;flex-direction:column;border:1px solid #222;cursor:pointer;user-select:none">
+
+  <div style="display:flex;align-items:center;gap:0;background:#1b1b1b;border-bottom:1px solid #000;font-size:15px;letter-spacing:.02em;color:#dcdcdc">
+    <div style="padding:6px 14px;border-right:1px solid #000;min-width:86px">Bed 3</div>
+    <div style="padding:6px 14px;border-right:1px solid #000;min-width:160px">{{ patient }}</div>
+    <div style="padding:6px 14px;border-right:1px solid #000;flex:1;text-align:center">Adult</div>
+    <div style="padding:6px 14px;border-right:1px solid #000;flex:1;text-align:center;font-variant-numeric:tabular-nums">{{ clock }}</div>
+    <div style="padding:6px 14px;border-right:1px solid #000;flex:1;text-align:center">3 Waves</div>
+    <div style="padding:6px 14px;border-right:1px solid #000;flex:1.4;text-align:center;font-weight:600;letter-spacing:.06em;color:{{ modeColor }}">{{ modeLabel }}</div>
+    <div style="padding:5px 14px;display:flex;align-items:center;gap:10px">
+      <button type="button" onClick="{{ toggleSound }}" style="background:#2a2a2a;border:1px solid #3d3d3d;color:#dcdcdc;font:500 12px/1 'Helvetica Neue',Arial,sans-serif;padding:6px 10px;border-radius:3px;cursor:pointer;letter-spacing:.04em" style-hover="background:#383838">{{ soundLabel }}</button>
+      <svg width="13" height="15" viewBox="0 0 13 15" style="display:block"><path d="M6.5 1a4 4 0 0 1 4 4v3l1.4 2.2H-.9L1.5 8V5a4 4 0 0 1 4-4z" transform="translate(.5)" fill="#e6e6e6"></path><circle cx="6.5" cy="13" r="1.6" fill="#e6e6e6"></circle></svg>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,2.15fr) minmax(0,1fr);min-height:0">
+
+    <div style="display:flex;flex-direction:column;border-right:1px solid #1a1a1a">
+      <div style="position:relative;height:130px;border-bottom:1px solid #111">
+        <div style="position:absolute;top:6px;left:10px;font-size:12px;color:#4ade80;z-index:2;letter-spacing:.04em">II</div>
+        <canvas ref="{{ ecgRef }}" style="width:100%;height:100%;display:block"></canvas>
+      </div>
+      <div style="position:relative;height:130px;border-bottom:1px solid #111">
+        <div style="position:absolute;top:6px;left:10px;font-size:12px;color:#67d5f5;z-index:2;letter-spacing:.04em">Pleth</div>
+        <canvas ref="{{ plethRef }}" style="width:100%;height:100%;display:block"></canvas>
+      </div>
+      <div style="position:relative;height:130px">
+        <div style="position:absolute;top:6px;left:10px;font-size:12px;color:#f2e34c;z-index:2;letter-spacing:.04em">Resp</div>
+        <canvas ref="{{ respRef }}" style="width:100%;height:100%;display:block"></canvas>
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 116px;min-width:0">
+      <div style="display:flex;flex-direction:column;min-width:0">
+      <div style="display:grid;grid-template-columns:56px minmax(0,1fr);align-items:start;column-gap:6px;padding:8px 8px 0 14px;height:130px;box-sizing:border-box">
+        <div style="color:#4ade80">
+          <div style="font-size:19px;font-weight:500;margin-bottom:2px">HR</div>
+          <div style="font-size:14px;line-height:1.25;color:#3bbd6b;font-variant-numeric:tabular-nums">120<br>50</div>
+        </div>
+        <div style="font-size:46px;line-height:1.08;font-weight:600;color:#4ade80;font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.02em">{{ hr }}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:56px minmax(0,1fr);align-items:start;column-gap:6px;padding:8px 8px 0 14px;height:130px;box-sizing:border-box">
+        <div style="color:#4ddbe6">
+          <div style="font-size:19px;font-weight:500;margin-bottom:2px">SpO<span style="font-size:12px">2</span></div>
+          <div style="font-size:14px;line-height:1.25;color:#38a8b4;font-variant-numeric:tabular-nums">100<br>90</div>
+        </div>
+        <div style="font-size:46px;line-height:1.08;font-weight:600;color:#4ddbe6;font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.02em">{{ spo2 }}</div>
+      </div>
+      <div style="display:grid;grid-template-columns:56px minmax(0,1fr);align-items:start;column-gap:6px;padding:8px 8px 0 14px;height:130px;box-sizing:border-box">
+        <div style="color:#f2e34c">
+          <div style="font-size:19px;font-weight:500;margin-bottom:2px">RR</div>
+          <div style="font-size:14px;line-height:1.25;color:#b5a92f;font-variant-numeric:tabular-nums">30<br>8</div>
+        </div>
+        <div style="font-size:46px;line-height:1.08;font-weight:600;color:#f2e34c;font-variant-numeric:tabular-nums;text-align:right;letter-spacing:-.02em">{{ rr }}</div>
+      </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;padding:8px 14px 0 12px;gap:42px;box-sizing:border-box">
+        <div style="color:#4ade80">
+          <div style="font-size:19px;font-weight:500">Pulse</div>
+          <div style="font-size:36px;line-height:1.1;font-weight:500;font-variant-numeric:tabular-nums;text-align:right">{{ pulse }}</div>
+        </div>
+        <div style="color:#4ade80">
+          <div style="font-size:19px;font-weight:500">Temp</div>
+          <div style="font-size:30px;line-height:1.15;font-weight:500;font-variant-numeric:tabular-nums;text-align:right">{{ temp }}</div>
+          <div style="font-size:15px;line-height:1.3;color:#3bbd6b;font-variant-numeric:tabular-nums;text-align:right">{{ tempHi }}<br>{{ tempLo }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:minmax(0,2.15fr) minmax(0,1fr);border-top:1px solid #1a1a1a;background:#000">
+    <div style="position:relative;padding:6px 14px 12px;min-height:118px;box-sizing:border-box">
+      <div style="display:flex;align-items:center;font-size:14px;color:#e04a3f;letter-spacing:.02em">
+        <div style="min-width:78px">NBP <span style="font-size:11px;color:#8c2f28">Sys.<br>Dia.</span></div>
+        <div style="flex:1;text-align:center">Auto 10 min</div>
+        <div style="flex:1;display:flex;align-items:center;justify-content:center;gap:8px">
+          <div style="width:52px;height:7px;background:#e04a3f"></div>
+          <div style="font-variant-numeric:tabular-nums;color:#c94238">{{ cuffCountdown }}</div>
+          <div>NBP <span style="font-size:10px;color:#8c2f28">mmHg</span></div>
+        </div>
+      </div>
+      <div style="position:absolute;right:14px;bottom:8px;font-size:12px;color:#6b6b6b;letter-spacing:.04em">{{ tapHint }}</div>
+      <div style="display:flex;align-items:flex-end;gap:18px;margin-top:2px">
+        <div style="font-size:14px;line-height:1.25;color:#8c2f28;font-variant-numeric:tabular-nums;padding-bottom:12px">160<br>90</div>
+        <div style="font-size:54px;line-height:1.05;font-weight:500;color:#e8483b;font-variant-numeric:tabular-nums">{{ sys }}/{{ dia }}</div>
+        <div style="font-size:54px;line-height:1.05;font-weight:500;color:#e8483b;font-variant-numeric:tabular-nums">({{ map }})</div>
+      </div>
+    </div>
+
+    <div style="padding:10px 14px;display:flex;flex-direction:column;justify-content:flex-end">
+      <sc-for list="{{ hist }}" as="row" hint-placeholder-count="5">
+        <div style="display:flex;gap:16px;font-size:14px;line-height:1.5;color:#d0453a;font-variant-numeric:tabular-nums">
+          <div style="min-width:52px">{{ row.t }}</div>
+          <div>{{ row.v }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1160,&quot;height&quot;:640},&quot;patient&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Doe, John&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;hrBase&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:76,&quot;min&quot;:40,&quot;max&quot;:150,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;spo2Base&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:84,&quot;min&quot;:70,&quot;max&quot;:100,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;rrBase&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:18,&quot;min&quot;:8,&quot;max&quot;:40,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;},&quot;sweepSpeed&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;default&quot;:1,&quot;min&quot;:0.4,&quot;max&quot;:2,&quot;step&quot;:0.1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Simulation&quot;}}">
+class Component extends DCLogic {
+  state = { soundOn: false, mode: 1, pending: 0, hr: 76, pulse: 79, spo2: 84, rr: 18, temp: '37.3', sys: 121, dia: 82, map: 89, clock: '--:--', hist: [], cuffCountdown: '06:40' };
+
+  crefs = {
+    ecg: (el) => { this.cv.ecg = el; },
+    pleth: (el) => { this.cv.pleth = el; },
+    resp: (el) => { this.cv.resp = el; }
+  };
+
+  cv = {};
+  chans = [
+    { key: 'ecg', color: '#4ade80', speed: 105, amp: 0.42, gain: 1 },
+    { key: 'pleth', color: '#67d5f5', speed: 105, amp: 0.34, gain: 1 },
+    { key: 'resp', color: '#f2e34c', speed: 105, amp: 0.34, gain: 1 }
+  ];
+
+  componentDidMount() {
+    this.chans.forEach(c => { c.x = 0; c.py = null; c.phase = Math.random(); });
+    this.last = performance.now();
+    this.cuffLeft = 400;
+    this.setState({ hist: this.seedHist() });
+    this.tick = (now) => {
+      const dt = Math.min(0.06, (now - this.last) / 1000);
+      this.last = now;
+      this.chans.forEach(c => this.draw(c, dt));
+      this.raf = requestAnimationFrame(this.tick);
+    };
+    this.raf = requestAnimationFrame(this.tick);
+
+    this.iVit = setInterval(() => this.vitals(), 1800);
+    this.iClock = setInterval(() => this.clock(), 1000);
+    this.clock();
+    this.iNbp = setInterval(() => this.nbp(), 65000);
+    this.rampStart = performance.now();
+    this.applyMode(1);
+  }
+
+  componentWillUnmount() {
+    cancelAnimationFrame(this.raf);
+    clearInterval(this.iVit); clearInterval(this.iClock); clearInterval(this.iNbp);
+    clearTimeout(this.tapTimer); clearTimeout(this.applyTimer);
+  }
+
+  modes = {
+    1: { label: 'STABLE', color: '#4ade80', vals: { hr: 120, rr: 30, spo2: 91, sys: 85, dia: 55 } },
+    2: { label: 'CRITICAL', color: '#e8483b', vals: { hr: 145, rr: 38, spo2: 85, sys: 78, dia: 42 } },
+    3: { label: 'RECOVERING', color: '#f2e34c', vals: { hr: 100, rr: 25, spo2: 95, sys: 120, dia: 80 } }
+  };
+
+  onTap = () => {
+    this.taps = Math.min(3, (this.taps || 0) + 1);
+    this.setState({ pending: this.taps });
+    clearTimeout(this.tapTimer);
+    clearTimeout(this.applyTimer);
+    this.tapTimer = setTimeout(() => {
+      const m = this.taps; this.taps = 0;
+      this.applyTimer = setTimeout(() => this.applyMode(m), 2000);
+    }, 700);
+  };
+
+  applyMode(m) {
+    const def = this.modes[m];
+    if (!def) return;
+    this.rampStart = performance.now();
+    this.setState({ mode: m, pending: 0 });
+    this.vitals();
+  }
+
+  baseNow() {
+    const def = this.modes[this.state.mode] || this.modes[1];
+    if (def.vals) return def.vals;
+    const k = Math.min(1, ((performance.now() - (this.rampStart || 0)) / 1000) / def.dur);
+    const e = k * k * (3 - 2 * k);
+    const mix = {};
+    Object.keys(def.from).forEach(key => { mix[key] = def.from[key] + (def.to[key] - def.from[key]) * e; });
+    return mix;
+  }
+
+  toggleSound = (ev) => {
+    if (ev && ev.stopPropagation) ev.stopPropagation();
+    if (!this.actx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) this.actx = new AC();
+    }
+    if (this.actx && this.actx.state === 'suspended') this.actx.resume();
+    this.setState(s => ({ soundOn: !s.soundOn }));
+  };
+
+  beep() {
+    const a = this.actx;
+    if (!a || !this.state.soundOn) return;
+    const t = a.currentTime;
+    const o = a.createOscillator(), g = a.createGain();
+    // pitch drops as SpO2 falls, like a real pulse-oximeter tone
+    o.type = 'square';
+    o.frequency.value = 520 + (Math.min(100, this.state.spo2) - 90) * 14;
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(0.09, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.075);
+    o.connect(g); g.connect(a.destination);
+    o.start(t); o.stop(t + 0.09);
+  }
+
+  hhmm(d) {
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+  }
+
+  clock() {
+    const d = new Date();
+    this.cuffLeft = Math.max(0, this.cuffLeft - 1);
+    if (this.cuffLeft === 0) this.cuffLeft = 600;
+    const m = Math.floor(this.cuffLeft / 60), s = this.cuffLeft % 60;
+    this.setState({ clock: this.hhmm(d), cuffCountdown: String(m).padStart(2, '0') + ':' + String(s).padStart(2, '0') });
+  }
+
+  seedHist() {
+    const out = [];
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 10 * 60000);
+      const sys = 119 + Math.round(Math.random() * 5), dia = 79 + Math.round(Math.random() * 4);
+      out.push({ t: this.hhmm(d), v: sys + '/' + dia + ' (' + Math.round(dia + (sys - dia) / 3) + ')' });
+    }
+    return out;
+  }
+
+  vitals() {
+    const j = (v, sp) => v + (Math.random() * 2 - 1) * sp;
+    const b = this.baseNow();
+    const hrT = b.hr, spT = b.spo2, rrT = b.rr;
+    const hr = Math.max(40, Math.round(j(hrT, 3)));
+    const sys = Math.round(j(b.sys, 3)), dia = Math.round(j(b.dia, 2));
+    this.setState({
+      sys, dia, map: Math.round(dia + (sys - dia) / 3),
+      hr,
+      pulse: hr + (Math.random() < 0.5 ? 0 : 1) + Math.round(Math.random() * 2),
+      spo2: Math.min(100, Math.max(70, Math.round(j(spT, 1.4)))),
+      rr: Math.max(6, Math.round(j(rrT, 1.6))),
+      temp: j(37.3, 0.15).toFixed(1),
+      tempHi: j(40.1, 0.05).toFixed(1),
+      tempLo: j(36.9, 0.05).toFixed(1)
+    });
+  }
+
+  nbp() {
+    const b = this.baseNow();
+    const sys = Math.round(b.sys + (Math.random() * 6 - 3));
+    const dia = Math.round(b.dia + (Math.random() * 4 - 2));
+    const map = Math.round(dia + (sys - dia) / 3);
+    const t = this.hhmm(new Date());
+    if (this.state.hist.length && this.state.hist[this.state.hist.length - 1].t === t) return;
+    const hist = this.state.hist.slice(-4).concat([{ t: t, v: sys + '/' + dia + ' (' + map + ')' }]);
+    this.setState({ sys, dia, map, hist });
+  }
+
+  wave(key, p) {
+    const g = (x, c, w) => Math.exp(-Math.pow((x - c) / w, 2));
+    if (key === 'ecg') {
+      return 0.13 * g(p, 0.14, 0.026) - 0.09 * g(p, 0.195, 0.009)
+        + 1.0 * g(p, 0.215, 0.0085) - 0.26 * g(p, 0.245, 0.013)
+        + 0.30 * g(p, 0.37, 0.048) + (Math.random() - 0.5) * 0.012;
+    }
+    if (key === 'pleth') {
+      return 0.95 * g(p, 0.22, 0.10) + 0.42 * g(p, 0.45, 0.13) + 0.1 * g(p, 0.7, 0.2) - 0.35;
+    }
+    return 0.9 * g(p, 0.32, 0.135) + 0.18 * g(p, 0.52, 0.09) - 0.3 + (Math.random() - 0.5) * 0.02;
+  }
+
+  period(key) {
+    if (key === 'resp') return 60 / Math.max(6, this.state.rr);
+    return 60 / Math.max(35, this.state.hr);
+  }
+
+  draw(c, dt) {
+    const el = this.cv[c.key];
+    if (!el) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = el.clientWidth, h = el.clientHeight;
+    if (!w || !h) return;
+    const g = el.getContext('2d');
+    if (el.width !== Math.round(w * dpr) || el.height !== Math.round(h * dpr)) {
+      el.width = Math.round(w * dpr); el.height = Math.round(h * dpr);
+      g.setTransform(dpr, 0, 0, dpr, 0, 0);
+      g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+      c.x = 0; c.py = null;
+    }
+    const mid = h * 0.56;
+    const per = this.period(c.key);
+    const speed = c.speed * (this.props.sweepSpeed ?? 1);
+    const total = speed * dt;
+    const steps = Math.max(1, Math.ceil(total / 1.5));
+    g.lineWidth = 1.8;
+    g.strokeStyle = c.color;
+    g.lineJoin = 'round';
+    g.shadowColor = c.color;
+    g.shadowBlur = 6;
+    for (let i = 0; i < steps; i++) {
+      const sdt = dt / steps, sdx = total / steps;
+      const prevPhase = c.phase;
+      c.phase = (c.phase + sdt / per) % 1;
+      if (c.key === 'ecg' && (prevPhase < 0.215) !== (c.phase < 0.215) && c.phase > prevPhase) this.beep();
+      let nx = c.x + sdx;
+      const y = mid - this.wave(c.key, c.phase) * h * c.amp;
+      if (nx >= w) { nx -= w; c.py = null; }
+      g.save(); g.shadowBlur = 0; g.fillStyle = '#000';
+      g.fillRect(nx, 0, 22, h);
+      if (nx + 22 > w) g.fillRect(0, 0, nx + 22 - w, h);
+      g.restore();
+      if (c.py !== null) {
+        g.beginPath(); g.moveTo(c.x, c.py); g.lineTo(nx, y); g.stroke();
+      }
+      c.x = nx; c.py = y;
+    }
+    g.shadowBlur = 0;
+  }
+
+  renderVals() {
+    const s = this.state;
+    return {
+      ecgRef: this.crefs.ecg, plethRef: this.crefs.pleth, respRef: this.crefs.resp,
+      patient: this.props.patient ?? 'Doe, John',
+      hr: s.hr, pulse: s.pulse, spo2: s.spo2, rr: s.rr,
+      temp: s.temp, tempHi: s.tempHi ?? '40.1', tempLo: s.tempLo ?? '36.9',
+      sys: s.sys, dia: s.dia, map: s.map,
+      clock: s.clock, cuffCountdown: s.cuffCountdown, hist: s.hist,
+      toggleSound: this.toggleSound, soundLabel: s.soundOn ? 'SOUND ON' : 'SOUND OFF',
+      onTap: this.onTap,
+      modeLabel: (this.modes[s.mode] || this.modes[1]).label,
+      modeColor: (this.modes[s.mode] || this.modes[1]).color,
+      tapHint: s.pending ? 'tap x' + s.pending + ' — switching in 2s' : 'tap screen: 1 = stable / 2 = critical / 3 = recovering'
+    };
+  }
+}
+</script>
+</body>
+</html>
