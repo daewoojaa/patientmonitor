@@ -31,6 +31,8 @@ const NBP_INTERVAL_MS = 65000;
 const SWEEP_SPEED = 1;
 const CUFF_START_S = 400;
 const CUFF_RESET_S = 600;
+const LOOP_GAIN = 0.06;
+const BEEP_GAIN = 0.09;
 
 const DISCLAIMER_KEY = "pm-disclaimer-dismissed";
 const BED_KEY = "pm-bed";
@@ -49,6 +51,7 @@ export default function Monitor() {
   const [cuffCountdown, setCuffCountdown] = useState("06:40");
   const [hist, setHist] = useState<HistRow[]>([]);
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
 
   const ecgCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const plethCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -154,10 +157,11 @@ export default function Monitor() {
   const beep = useCallback(() => {
     const ctx = audioCtxRef.current;
     if (!ctx || !soundOnRef.current) return;
-    // Prefer a user-supplied mp3 for the current mode (see public/sounds/); if
-    // none was found, fall back to the synthesized pulse-oximeter tone.
+    // A looping ambient/alarm mp3 for the current mode (see public/sounds/)
+    // already provides continuous audio feedback — don't also click on top
+    // of it. Only synthesize the per-beat tone when no such loop is active.
     const slot = slotForMode(modeRef.current);
-    if (soundBankRef.current?.play(slot, 0.09)) return;
+    if (soundBankRef.current?.isLooping(slot)) return;
 
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
@@ -165,7 +169,7 @@ export default function Monitor() {
     osc.type = "square";
     osc.frequency.value = 520 + (Math.min(100, spo2Ref.current) - 90) * 14;
     gain.gain.setValueAtTime(0, t);
-    gain.gain.linearRampToValueAtTime(0.09, t + 0.006);
+    gain.gain.linearRampToValueAtTime(BEEP_GAIN, t + 0.006);
     gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.075);
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -185,9 +189,34 @@ export default function Monitor() {
     if (audioCtxRef.current && !soundBankRef.current) {
       soundBankRef.current = new SoundBank(audioCtxRef.current);
       soundBankRef.current.preloadAll();
+      setAudioReady(true);
     }
     setSoundOn((s) => !s);
   }, []);
+
+  // Start/stop the current mode's looping ambient/alarm mp3 as sound and mode
+  // state change. Falls back to no-op (per-beat synth beep takes over) when
+  // no mp3 is loaded for that mode.
+  useEffect(() => {
+    const bank = soundBankRef.current;
+    if (!bank) return;
+    if (!soundOn) {
+      bank.stopLoop();
+      return;
+    }
+    const slot = slotForMode(mode);
+    if (bank.startLoop(slot, LOOP_GAIN)) return;
+
+    let cancelled = false;
+    bank.load(slot).then((buffer) => {
+      if (!cancelled && buffer && soundOnRef.current && modeRef.current === mode) {
+        bank.startLoop(slot, LOOP_GAIN);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, soundOn, audioReady]);
 
   const runNbp = useCallback(() => {
     const base = MODE_VALS[modeRef.current];
@@ -234,6 +263,7 @@ export default function Monitor() {
       clearInterval(iNbp);
       if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
       if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
+      soundBankRef.current?.stopLoop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

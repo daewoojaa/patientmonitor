@@ -1,7 +1,8 @@
-// Loads optional per-mode pulse-tone mp3s from /public/sounds and plays them
-// through the shared AudioContext. If a file is missing (404) or fails to
-// decode, playback for that slot silently reports "no buffer" so callers can
-// fall back to the synthesized beep — nothing breaks if no mp3s are added.
+// Loads optional per-mode ambient/alarm-tone mp3s from /public/sounds and
+// loops them through the shared AudioContext while that mode is active and
+// sound is on. If a file is missing (404) or fails to decode, `startLoop`
+// reports failure so callers can fall back to the synthesized per-beat
+// beep — nothing breaks if no mp3s are added.
 import type { ModeId } from "./simulation";
 
 export type SoundSlot = "pulse-stable" | "pulse-critical" | "pulse-recovering";
@@ -18,48 +19,84 @@ export function slotForMode(mode: ModeId): SoundSlot {
   return "pulse-stable";
 }
 
+interface ActiveLoop {
+  slot: SoundSlot;
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+}
+
 export class SoundBank {
   private ctx: AudioContext;
   private buffers = new Map<SoundSlot, AudioBuffer | null>();
-  private pending = new Set<SoundSlot>();
+  private loading = new Map<SoundSlot, Promise<AudioBuffer | null>>();
+  private activeLoop: ActiveLoop | null = null;
 
   constructor(ctx: AudioContext) {
     this.ctx = ctx;
   }
 
-  /** Fire-and-forget preload; safe to call repeatedly (dedupes in-flight/loaded slots). */
-  preload(slot: SoundSlot): void {
-    if (this.buffers.has(slot) || this.pending.has(slot)) return;
-    this.pending.add(slot);
-    fetch(SOUND_FILES[slot])
+  /** Fetches + decodes a slot's mp3, caching the result (including failures as null). */
+  load(slot: SoundSlot): Promise<AudioBuffer | null> {
+    if (this.buffers.has(slot)) return Promise.resolve(this.buffers.get(slot) ?? null);
+    const inFlight = this.loading.get(slot);
+    if (inFlight) return inFlight;
+
+    const promise = fetch(SOUND_FILES[slot])
       .then((res) => (res.ok ? res.arrayBuffer() : Promise.reject(new Error("not found"))))
       .then((data) => this.ctx.decodeAudioData(data))
       .then((decoded) => {
         this.buffers.set(slot, decoded);
+        return decoded;
       })
       .catch(() => {
         this.buffers.set(slot, null);
+        return null;
       })
       .finally(() => {
-        this.pending.delete(slot);
+        this.loading.delete(slot);
       });
+    this.loading.set(slot, promise);
+    return promise;
   }
 
   preloadAll(): void {
-    (Object.keys(SOUND_FILES) as SoundSlot[]).forEach((slot) => this.preload(slot));
+    (Object.keys(SOUND_FILES) as SoundSlot[]).forEach((slot) => {
+      this.load(slot);
+    });
   }
 
-  /** Returns true if a buffer was available and playback started. */
-  play(slot: SoundSlot, gainValue: number): boolean {
+  /** Starts (or keeps) a looping ambient tone for `slot`. Returns false if no buffer is loaded yet. */
+  startLoop(slot: SoundSlot, gainValue: number): boolean {
+    if (this.activeLoop?.slot === slot) return true;
     const buffer = this.buffers.get(slot);
     if (!buffer) return false;
-    const src = this.ctx.createBufferSource();
-    src.buffer = buffer;
+
+    this.stopLoop();
+    const source = this.ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
     const gain = this.ctx.createGain();
     gain.gain.value = gainValue;
-    src.connect(gain);
+    source.connect(gain);
     gain.connect(this.ctx.destination);
-    src.start();
+    source.start();
+    this.activeLoop = { slot, source, gain };
     return true;
+  }
+
+  stopLoop(): void {
+    if (!this.activeLoop) return;
+    try {
+      this.activeLoop.source.stop();
+    } catch {
+      /* already stopped */
+    }
+    this.activeLoop.source.disconnect();
+    this.activeLoop.gain.disconnect();
+    this.activeLoop = null;
+  }
+
+  isLooping(slot: SoundSlot): boolean {
+    return this.activeLoop?.slot === slot;
   }
 }
