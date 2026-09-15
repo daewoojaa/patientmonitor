@@ -1,6 +1,17 @@
 import type { Metadata, Viewport } from "next";
+import { Share_Tech_Mono } from "next/font/google";
 import RegisterServiceWorker from "./register-sw";
 import "./globals.css";
+
+// Closest freely-licensed stand-in for OCR-A: a technical, digital-readout
+// monospace. If the OS actually has a real OCR-A font installed, the
+// font-family stack in globals.css/Monitor.module.css prefers that first.
+const monitorFont = Share_Tech_Mono({
+  weight: "400",
+  subsets: ["latin"],
+  variable: "--font-monitor",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Patient Monitor",
@@ -37,7 +48,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="en">
+    <html lang="en" className={monitorFont.variable}>
       <body>
         {children}
         <RegisterServiceWorker />

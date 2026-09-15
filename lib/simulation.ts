@@ -1,5 +1,7 @@
 // Simulation math ported verbatim from reference/simulation-logic.js
-// (waveform shapes, vitals jitter model, NBP model). See HANDOFF.md.
+// (waveform shapes, vitals jitter model, NBP model), extended with per-mode
+// waveform morphology (see WaveStyle) so CRITICAL reads clinically as severe
+// shock + respiratory failure + hypoxia rather than just faster/scaled targets.
 
 export type ModeId = 1 | 2 | 3;
 export type ChannelKey = "ecg" | "pleth" | "resp";
@@ -29,6 +31,64 @@ export const MODE_DEFS: Record<ModeId, ModeDef> = {
   3: { label: "RECOVERING", color: "#f2e34c" },
 };
 
+// Per-mode waveform morphology. Mode 1 (STABLE) is all identity values so it
+// renders exactly like the original reference prototype; mode 2 (CRITICAL)
+// depicts severe shock (weak, thready pulse: low amplitude / flattened
+// dicrotic notch on the pleth), respiratory failure (shallow, irregular
+// breaths with occasional weak effort), and hypoxia (noisy, low-amplitude
+// ECG and pleth signal, consistent with poor perfusion).
+export interface WaveStyle {
+  ecgAmpScale: number;
+  ecgNoiseScale: number;
+  ecgIrregularity: number; // fractional beat-to-beat rate jitter, re-rolled each cycle
+  plethAmpScale: number;
+  plethNotchScale: number;
+  plethNoiseAmp: number; // absolute noise amplitude added to the pleth trace
+  respAmpScale: number;
+  respNoiseScale: number;
+  respIrregularity: number; // fractional breath-to-breath rate jitter
+  respEffortVariability: number; // fractional breath-to-breath amplitude jitter (weak effort)
+}
+
+export const MODE_WAVE_STYLES: Record<ModeId, WaveStyle> = {
+  1: {
+    ecgAmpScale: 1,
+    ecgNoiseScale: 1,
+    ecgIrregularity: 0,
+    plethAmpScale: 1,
+    plethNotchScale: 1,
+    plethNoiseAmp: 0,
+    respAmpScale: 1,
+    respNoiseScale: 1,
+    respIrregularity: 0,
+    respEffortVariability: 0,
+  },
+  2: {
+    ecgAmpScale: 0.6,
+    ecgNoiseScale: 3,
+    ecgIrregularity: 0.08,
+    plethAmpScale: 0.35,
+    plethNotchScale: 0.2,
+    plethNoiseAmp: 0.05,
+    respAmpScale: 0.55,
+    respNoiseScale: 3,
+    respIrregularity: 0.4,
+    respEffortVariability: 0.6,
+  },
+  3: {
+    ecgAmpScale: 0.92,
+    ecgNoiseScale: 1.3,
+    ecgIrregularity: 0.02,
+    plethAmpScale: 0.85,
+    plethNotchScale: 0.8,
+    plethNoiseAmp: 0.01,
+    respAmpScale: 0.88,
+    respNoiseScale: 1.3,
+    respIrregularity: 0.06,
+    respEffortVariability: 0.08,
+  },
+};
+
 export interface ChannelConfig {
   key: ChannelKey;
   color: string;
@@ -46,6 +106,12 @@ export interface ChannelRuntime {
   x: number;
   py: number | null;
   phase: number;
+  periodJitter: number;
+  ampJitter: number;
+}
+
+export function createChannelRuntime(phase: number): ChannelRuntime {
+  return { x: 0, py: null, phase, periodJitter: 1, ampJitter: 1 };
 }
 
 export interface VitalsState {
@@ -83,31 +149,27 @@ function gaussian(x: number, c: number, w: number): number {
   return Math.exp(-Math.pow((x - c) / w, 2));
 }
 
-export function waveValue(key: ChannelKey, p: number): number {
+export function waveValue(key: ChannelKey, p: number, style: WaveStyle): number {
   if (key === "ecg") {
-    return (
+    const base =
       0.13 * gaussian(p, 0.14, 0.026) -
       0.09 * gaussian(p, 0.195, 0.009) +
       1.0 * gaussian(p, 0.215, 0.0085) -
       0.26 * gaussian(p, 0.245, 0.013) +
-      0.3 * gaussian(p, 0.37, 0.048) +
-      (Math.random() - 0.5) * 0.012
-    );
+      0.3 * gaussian(p, 0.37, 0.048);
+    const noise = (Math.random() - 0.5) * 0.012 * style.ecgNoiseScale;
+    return base * style.ecgAmpScale + noise;
   }
   if (key === "pleth") {
-    return (
-      0.95 * gaussian(p, 0.22, 0.1) +
-      0.42 * gaussian(p, 0.45, 0.13) +
-      0.1 * gaussian(p, 0.7, 0.2) -
-      0.35
-    );
+    const upstroke = 0.95 * gaussian(p, 0.22, 0.1);
+    const notch = 0.42 * gaussian(p, 0.45, 0.13) * style.plethNotchScale;
+    const tail = 0.1 * gaussian(p, 0.7, 0.2);
+    const noise = (Math.random() - 0.5) * 2 * style.plethNoiseAmp;
+    return (upstroke + notch + tail - 0.35) * style.plethAmpScale + noise;
   }
-  return (
-    0.9 * gaussian(p, 0.32, 0.135) +
-    0.18 * gaussian(p, 0.52, 0.09) -
-    0.3 +
-    (Math.random() - 0.5) * 0.02
-  );
+  const base = 0.9 * gaussian(p, 0.32, 0.135) + 0.18 * gaussian(p, 0.52, 0.09) - 0.3;
+  const noise = (Math.random() - 0.5) * 0.02 * style.respNoiseScale;
+  return base * style.respAmpScale + noise;
 }
 
 export function periodFor(key: ChannelKey, hr: number, rr: number): number {
@@ -169,6 +231,7 @@ export function drawChannel(
   hr: number,
   rr: number,
   sweepSpeed: number,
+  style: WaveStyle,
   onEcgBeat: () => void
 ): void {
   const dpr = window.devicePixelRatio || 1;
@@ -195,6 +258,7 @@ export function drawChannel(
   const speed = config.speed * sweepSpeed;
   const total = speed * dt;
   const steps = Math.max(1, Math.ceil(total / STEP_PX));
+  const cycleIrregularity = config.key === "resp" ? style.respIrregularity : style.ecgIrregularity;
 
   ctx.lineWidth = 1.8;
   ctx.strokeStyle = config.color;
@@ -206,7 +270,7 @@ export function drawChannel(
     const sdt = dt / steps;
     const sdx = total / steps;
     const prevPhase = runtime.phase;
-    runtime.phase = (runtime.phase + sdt / per) % 1;
+    runtime.phase = (prevPhase + (sdt / per) * runtime.periodJitter) % 1;
 
     if (
       config.key === "ecg" &&
@@ -216,8 +280,18 @@ export function drawChannel(
       onEcgBeat();
     }
 
+    if (runtime.phase < prevPhase) {
+      // Crossed into a new cycle: re-roll this channel's rate (and, for
+      // respiration, effort/amplitude) jitter for the upcoming cycle.
+      runtime.periodJitter = 1 + (Math.random() * 2 - 1) * cycleIrregularity;
+      if (config.key === "resp") {
+        runtime.ampJitter = 1 - Math.random() * style.respEffortVariability;
+      }
+    }
+
     let nx = runtime.x + sdx;
-    const y = mid - waveValue(config.key, runtime.phase) * h * config.amp;
+    const ampJitter = config.key === "resp" ? runtime.ampJitter : 1;
+    const y = mid - waveValue(config.key, runtime.phase, style) * h * config.amp * ampJitter;
     if (nx >= w) {
       nx -= w;
       runtime.py = null;

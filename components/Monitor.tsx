@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import styles from "./Monitor.module.css";
+import EditableField from "./EditableField";
 import {
   CHANNELS,
   DEFAULT_VITALS,
   MODE_DEFS,
   MODE_VALS,
+  MODE_WAVE_STYLES,
   ModeId,
   VitalsState,
   HistRow,
@@ -14,10 +16,12 @@ import {
   ChannelRuntime,
   computeNbp,
   computeVitals,
+  createChannelRuntime,
   drawChannel,
   hhmm,
   seedHist,
 } from "@/lib/simulation";
+import { SoundBank, slotForMode } from "@/lib/audio";
 
 const TAP_WINDOW_MS = 700;
 const APPLY_DELAY_MS = 2000;
@@ -29,9 +33,14 @@ const CUFF_START_S = 400;
 const CUFF_RESET_S = 600;
 
 const DISCLAIMER_KEY = "pm-disclaimer-dismissed";
+const BED_KEY = "pm-bed";
+const PATIENT_KEY = "pm-patient";
+const PATIENT_TYPE_KEY = "pm-patient-type";
 
 export default function Monitor() {
-  const [patient] = useState("Doe, John");
+  const [bed, setBed] = useState("Bed 3");
+  const [patient, setPatient] = useState("Doe, John");
+  const [patientType, setPatientType] = useState("Adult");
   const [mode, setMode] = useState<ModeId>(1);
   const [pending, setPending] = useState(0);
   const [soundOn, setSoundOn] = useState(false);
@@ -57,6 +66,7 @@ export default function Monitor() {
   const applyTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const cuffLeftRef = useRef(CUFF_START_S);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const soundBankRef = useRef<SoundBank | null>(null);
 
   useEffect(() => {
     modeRef.current = mode;
@@ -78,6 +88,12 @@ export default function Monitor() {
     try {
       // eslint-disable-next-line react-hooks/set-state-in-effect
       if (!window.localStorage.getItem(DISCLAIMER_KEY)) setShowDisclaimer(true);
+      const savedBed = window.localStorage.getItem(BED_KEY);
+      const savedPatient = window.localStorage.getItem(PATIENT_KEY);
+      const savedType = window.localStorage.getItem(PATIENT_TYPE_KEY);
+      if (savedBed) setBed(savedBed);
+      if (savedPatient) setPatient(savedPatient);
+      if (savedType) setPatientType(savedType);
     } catch {
       setShowDisclaimer(true);
     }
@@ -87,6 +103,31 @@ export default function Monitor() {
     setShowDisclaimer(false);
     try {
       window.localStorage.setItem(DISCLAIMER_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  const updateBed = useCallback((next: string) => {
+    setBed(next);
+    try {
+      window.localStorage.setItem(BED_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const updatePatient = useCallback((next: string) => {
+    setPatient(next);
+    try {
+      window.localStorage.setItem(PATIENT_KEY, next);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+  const updatePatientType = useCallback((next: string) => {
+    setPatientType(next);
+    try {
+      window.localStorage.setItem(PATIENT_TYPE_KEY, next);
     } catch {
       /* ignore */
     }
@@ -113,6 +154,11 @@ export default function Monitor() {
   const beep = useCallback(() => {
     const ctx = audioCtxRef.current;
     if (!ctx || !soundOnRef.current) return;
+    // Prefer a user-supplied mp3 for the current mode (see public/sounds/); if
+    // none was found, fall back to the synthesized pulse-oximeter tone.
+    const slot = slotForMode(modeRef.current);
+    if (soundBankRef.current?.play(slot, 0.09)) return;
+
     const t = ctx.currentTime;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
@@ -135,6 +181,10 @@ export default function Monitor() {
     }
     if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
       audioCtxRef.current.resume();
+    }
+    if (audioCtxRef.current && !soundBankRef.current) {
+      soundBankRef.current = new SoundBank(audioCtxRef.current);
+      soundBankRef.current.preloadAll();
     }
     setSoundOn((s) => !s);
   }, []);
@@ -191,9 +241,9 @@ export default function Monitor() {
   // Waveform render loop.
   useEffect(() => {
     const runtimes: Record<ChannelKey, ChannelRuntime> = {
-      ecg: { x: 0, py: null, phase: Math.random() },
-      pleth: { x: 0, py: null, phase: Math.random() },
-      resp: { x: 0, py: null, phase: Math.random() },
+      ecg: createChannelRuntime(Math.random()),
+      pleth: createChannelRuntime(Math.random()),
+      resp: createChannelRuntime(Math.random()),
     };
     const canvasRefs: Record<ChannelKey, React.RefObject<HTMLCanvasElement | null>> = {
       ecg: ecgCanvasRef,
@@ -217,6 +267,7 @@ export default function Monitor() {
             hrRef.current,
             rrRef.current,
             SWEEP_SPEED,
+            MODE_WAVE_STYLES[modeRef.current],
             cfg.key === "ecg" ? beep : () => {}
           );
         }
@@ -235,9 +286,15 @@ export default function Monitor() {
   return (
     <div className={styles.monitor} onClick={handleTap}>
       <div className={styles.statusBar}>
-        <div className={`${styles.cell} ${styles.cellBed}`}>Bed 3</div>
-        <div className={`${styles.cell} ${styles.cellPatient}`}>{patient}</div>
-        <div className={`${styles.cell} ${styles.cellCenter}`}>Adult</div>
+        <div className={`${styles.cell} ${styles.cellBed}`}>
+          <EditableField value={bed} onChange={updateBed} ariaLabel="Bed" />
+        </div>
+        <div className={`${styles.cell} ${styles.cellPatient}`}>
+          <EditableField value={patient} onChange={updatePatient} ariaLabel="Patient name" />
+        </div>
+        <div className={`${styles.cell} ${styles.cellCenter}`}>
+          <EditableField value={patientType} onChange={updatePatientType} ariaLabel="Patient type" />
+        </div>
         <div className={`${styles.cell} ${styles.cellCenter}`} style={{ fontVariantNumeric: "tabular-nums" }}>
           {clock}
         </div>

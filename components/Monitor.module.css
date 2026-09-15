@@ -1,5 +1,5 @@
 .monitor {
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-monitor-stack);
   background: #000;
   color: #e6e6e6;
   width: 1200px;
@@ -50,7 +50,7 @@
   background: #2a2a2a;
   border: 1px solid #3d3d3d;
   color: #dcdcdc;
-  font: 500 12px/1 "Helvetica Neue", Arial, sans-serif;
+  font: 500 12px/1 var(--font-monitor-stack);
   padding: 6px 10px;
   border-radius: 3px;
   cursor: pointer;
@@ -284,7 +284,7 @@
   border: 1px solid #333;
   border-radius: 6px;
   padding: 22px 24px;
-  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-family: var(--font-monitor-stack);
   color: #dcdcdc;
 }
 .disclaimerTitle {
@@ -304,7 +304,7 @@
   background: #2a2a2a;
   border: 1px solid #3d3d3d;
   color: #dcdcdc;
-  font: 500 12px/1 "Helvetica Neue", Arial, sans-serif;
+  font: 500 12px/1 var(--font-monitor-stack);
   padding: 9px 16px;
   border-radius: 3px;
   cursor: pointer;
@@ -312,4 +312,25 @@
 }
 .disclaimerBtn:hover {
   background: #383838;
+}
+
+.editableCell {
+  cursor: text;
+}
+.editableCell:hover {
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+.editInput {
+  width: 100%;
+  min-width: 0;
+  background: #000;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  border: none;
+  border-bottom: 1px dashed #6b6b6b;
+  outline: none;
+  padding: 0;
+  margin: 0;
 }
