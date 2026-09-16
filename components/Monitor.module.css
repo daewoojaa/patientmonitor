@@ -46,18 +46,18 @@
   align-items: center;
   gap: 10px;
 }
-.soundBtn {
-  background: #2a2a2a;
-  border: 1px solid #3d3d3d;
-  color: #dcdcdc;
-  font: 500 12px/1 var(--font-monitor-stack);
-  padding: 6px 10px;
-  border-radius: 3px;
+.bellBtn {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  margin: -6px;
+  display: flex;
+  align-items: center;
   cursor: pointer;
-  letter-spacing: 0.04em;
+  border-radius: 3px;
 }
-.soundBtn:hover {
-  background: #383838;
+.bellBtn:hover {
+  background: #2a2a2a;
 }
 
 /* Main area */
@@ -218,14 +218,6 @@
 .nbpUnit {
   font-size: 10px;
   color: #8c2f28;
-}
-.tapHint {
-  position: absolute;
-  right: 14px;
-  bottom: 8px;
-  font-size: 12px;
-  color: #6b6b6b;
-  letter-spacing: 0.04em;
 }
 .nbpValues {
   display: flex;

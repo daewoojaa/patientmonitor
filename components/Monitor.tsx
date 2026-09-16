@@ -39,12 +39,26 @@ const BED_KEY = "pm-bed";
 const PATIENT_KEY = "pm-patient";
 const PATIENT_TYPE_KEY = "pm-patient-type";
 
+interface FullscreenDocumentElement extends HTMLElement {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+}
+
+// Hides the device's own status/address bar chrome where the platform
+// supports it. Must run from within a user-gesture handler (tap/click).
+function requestFullscreen() {
+  if (typeof document === "undefined" || document.fullscreenElement) return;
+  const el = document.documentElement as FullscreenDocumentElement;
+  const request = el.requestFullscreen?.bind(el) ?? el.webkitRequestFullscreen?.bind(el);
+  request?.()?.catch?.(() => {
+    /* fullscreen isn't available/allowed here (e.g. iOS Safari) — no-op */
+  });
+}
+
 export default function Monitor() {
   const [bed, setBed] = useState("Bed 3");
-  const [patient, setPatient] = useState("Doe, John");
+  const [patient, setPatient] = useState("Anootin, Chan");
   const [patientType, setPatientType] = useState("Adult");
   const [mode, setMode] = useState<ModeId>(1);
-  const [pending, setPending] = useState(0);
   const [soundOn, setSoundOn] = useState(false);
   const [vitals, setVitals] = useState<VitalsState>(DEFAULT_VITALS);
   const [clock, setClock] = useState("--:--");
@@ -104,6 +118,7 @@ export default function Monitor() {
 
   const dismissDisclaimer = useCallback(() => {
     setShowDisclaimer(false);
+    requestFullscreen();
     try {
       window.localStorage.setItem(DISCLAIMER_KEY, "1");
     } catch {
@@ -138,13 +153,12 @@ export default function Monitor() {
 
   const applyMode = useCallback((m: ModeId) => {
     setMode(m);
-    setPending(0);
     setVitals(computeVitals(MODE_VALS[m]));
   }, []);
 
   const handleTap = useCallback(() => {
+    requestFullscreen();
     tapsRef.current = Math.min(3, tapsRef.current + 1);
-    setPending(tapsRef.current);
     if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
     if (applyTimerRef.current) clearTimeout(applyTimerRef.current);
     tapTimerRef.current = setTimeout(() => {
@@ -309,9 +323,6 @@ export default function Monitor() {
   }, [beep]);
 
   const modeDef = MODE_DEFS[mode];
-  const tapHint = pending
-    ? `tap x${pending} — switching in 2s`
-    : "tap screen: 1 = stable / 2 = critical / 3 = recovering";
 
   return (
     <div className={styles.monitor} onClick={handleTap}>
@@ -333,17 +344,22 @@ export default function Monitor() {
           {modeDef.label}
         </div>
         <div className={styles.controls}>
-          <button type="button" className={styles.soundBtn} onClick={toggleSound}>
-            {soundOn ? "SOUND ON" : "SOUND OFF"}
+          <button
+            type="button"
+            className={styles.bellBtn}
+            onClick={toggleSound}
+            aria-label={soundOn ? "Mute sound" : "Unmute sound"}
+            aria-pressed={soundOn}
+          >
+            <svg width="17" height="19" viewBox="0 0 13 15" style={{ display: "block" }}>
+              <path
+                d="M6.5 1a4 4 0 0 1 4 4v3l1.4 2.2H-.9L1.5 8V5a4 4 0 0 1 4-4z"
+                transform="translate(.5)"
+                fill={soundOn ? "#4ade80" : "#6b6b6b"}
+              />
+              <circle cx="6.5" cy="13" r="1.6" fill={soundOn ? "#4ade80" : "#6b6b6b"} />
+            </svg>
           </button>
-          <svg width="13" height="15" viewBox="0 0 13 15" style={{ display: "block" }}>
-            <path
-              d="M6.5 1a4 4 0 0 1 4 4v3l1.4 2.2H-.9L1.5 8V5a4 4 0 0 1 4-4z"
-              transform="translate(.5)"
-              fill="#e6e6e6"
-            />
-            <circle cx="6.5" cy="13" r="1.6" fill="#e6e6e6" />
-          </svg>
         </div>
       </div>
 
@@ -451,7 +467,6 @@ export default function Monitor() {
               </div>
             </div>
           </div>
-          <div className={styles.tapHint}>{tapHint}</div>
           <div className={styles.nbpValues}>
             <div className={styles.nbpLimits}>
               160
