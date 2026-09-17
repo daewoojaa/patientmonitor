@@ -74,7 +74,7 @@
 }
 .waveRow {
   position: relative;
-  height: 130px;
+  height: 150px;
 }
 .waveRowBorder {
   border-bottom: 1px solid #111;
@@ -109,7 +109,7 @@
   align-items: start;
   column-gap: 6px;
   padding: 8px 8px 0 14px;
-  height: 130px;
+  height: 150px;
   box-sizing: border-box;
 }
 .vitalLabel {
@@ -123,8 +123,8 @@
   font-variant-numeric: tabular-nums;
 }
 .vitalValue {
-  font-size: 46px;
-  line-height: 1.08;
+  font-size: 92px;
+  line-height: 1;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -178,7 +178,7 @@
 .nbpLeft {
   position: relative;
   padding: 6px 14px 12px;
-  min-height: 118px;
+  min-height: 150px;
   box-sizing: border-box;
 }
 .nbpHeader {
@@ -233,8 +233,8 @@
   padding-bottom: 12px;
 }
 .nbpBig {
-  font-size: 54px;
-  line-height: 1.05;
+  font-size: 96px;
+  line-height: 1;
   font-weight: 500;
   color: #e8483b;
   font-variant-numeric: tabular-nums;
@@ -325,4 +325,20 @@
   outline: none;
   padding: 0;
   margin: 0;
+}
+
+/* Landscape tablets (iPad Pro 11" 1194x834, iPad Air/10th-gen 1180x820, etc.):
+   the base design is much wider/flatter (~2.17:1) than these screens
+   (~1.4:1), so a plain uniform scale-to-fit always leaves huge blank bars
+   above and below. Grow the row heights (not fonts/paddings, not width) so
+   the design's own aspect ratio matches the screen and Stage's scale-to-fit
+   ends up filling it edge-to-edge with only a small margin. */
+@media (orientation: landscape) and (min-width: 1000px) and (max-width: 1400px) and (min-height: 700px) and (max-height: 900px) {
+  .waveRow,
+  .vitalRow {
+    height: 195px;
+  }
+  .nbpLeft {
+    min-height: 195px;
+  }
 }
